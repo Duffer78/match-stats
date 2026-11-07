@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Estrella Match Stats</title>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<style>
+:root{--bg:#f1f5f9;--card:#fff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--acc:#15803d;--acc2:#dcfce7;--opp:#b91c1c;--opp2:#fee2e2;--draw:#92400e;--draw2:#fef3c7}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);-webkit-tap-highlight-color:transparent;font-size:16px}
+header{position:sticky;top:0;z-index:5;background:var(--ink);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:calc(10px + env(safe-area-inset-top)) 14px 10px}
+.brand{font-weight:800;font-size:18px;display:flex;gap:8px;align-items:center}
+.sync{font-size:12px;opacity:.85}
+main{padding:12px 12px calc(90px + env(safe-area-inset-bottom));max-width:760px;margin:0 auto}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#fff;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:5}
+nav button{flex:1;border:0;background:none;padding:8px 0 10px;font-size:20px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted)}
+nav button span{font-size:11px;font-weight:700}
+nav button.on{color:var(--acc)}
+.card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.btn{border:0;border-radius:12px;padding:12px 16px;font-size:16px;font-weight:700;background:var(--line);color:var(--ink);cursor:pointer}
+.btn:active{transform:scale(.98)}
+.btn.pri{background:var(--acc);color:#fff}
+.btn.dark{background:var(--ink);color:#fff}
+.btn.danger{background:var(--opp2);color:var(--opp)}
+.btn.block{width:100%;display:block}
+.btn.sm{padding:8px 12px;font-size:14px;border-radius:10px}
+.btn.big{padding:18px;font-size:18px}
+.btns{display:flex;gap:8px;margin-top:10px}
+.btns .btn{flex:1}
+input,select,textarea{font:inherit;font-size:16px;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;width:100%;background:#fff;color:var(--ink)}
+textarea{min-height:110px}
+label.f{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:12px 0 4px}
+.row{display:flex;gap:8px;align-items:center}
+.grow{flex:1;min-width:0}
+h2{font-size:18px;margin:2px 0 10px}
+h3{font-size:15px;margin:14px 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.item{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item.tap{cursor:pointer}
+.num{min-width:34px;height:34px;padding:0 6px;border-radius:17px;background:var(--ink);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0}
+.score{display:flex;align-items:center;gap:6px;text-align:center}
+.score .side{flex:1;min-width:0}
+.score .tn{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.goals{font-size:48px;font-weight:900;border:0;background:var(--acc2);color:var(--acc);width:100%;border-radius:14px;padding:4px 0;margin-top:4px;cursor:pointer}
+.goals.opp{background:var(--opp2);color:var(--opp)}
+.clock{font-size:30px;font-variant-numeric:tabular-nums;font-weight:800;min-width:100px}
+.chip{display:inline-block;padding:3px 9px;border-radius:999px;background:var(--line);font-size:12px;font-weight:800}
+.chip.W{background:var(--acc2);color:var(--acc)}
+.chip.L{background:var(--opp2);color:var(--opp)}
+.chip.D{background:var(--draw2);color:var(--draw)}
+.chip.live{background:#dbeafe;color:#1d4ed8}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
+.tile{background:#fff;border:2px solid var(--line);border-radius:14px;padding:8px 4px;text-align:center;min-height:92px;cursor:pointer;font:inherit;color:inherit}
+.tile:active{border-color:var(--acc)}
+.tile .n{font-size:22px;font-weight:900;line-height:1.1}
+.tile .nm{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .mn{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tile .bd{font-size:12px;min-height:15px}
+.tile.bench{background:#f8fafc;border-style:dashed}
+.tile.sel{border-color:var(--acc);background:var(--acc2)}
+.sheetWrap{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:#fff;width:100%;max-width:760px;max-height:88vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 14px calc(16px + env(safe-area-inset-bottom))}
+.statgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.statgrid .btn{padding:16px 6px}
+.hidden{display:none!important}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--ink);color:#fff;padding:10px 16px;border-radius:999px;z-index:30;font-weight:700;display:flex;gap:14px;align-items:center;max-width:92vw;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.toast button{background:none;border:0;color:#86efac;font-weight:800;font-size:15px;padding:0}
+.tablewrap{overflow-x:auto;margin:0 -14px;padding:0 14px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:9px 7px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:12px;color:var(--muted);cursor:pointer;user-select:none}
+th.on{color:var(--acc)}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:#fff;max-width:130px;overflow:hidden;text-overflow:ellipsis}
+.seg{display:flex;background:var(--line);border-radius:10px;padding:3px;gap:2px}
+.seg button{flex:1;border:0;background:none;padding:8px 6px;border-radius:8px;font-weight:700;font-size:13px;color:var(--muted);cursor:pointer}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.seg button.on.s{background:var(--acc);color:#fff}
+.seg button.on.o{background:#94a3b8;color:#fff}
+.ev{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:15px}
+.ev .t{font-weight:800;min-width:36px;color:var(--muted);font-variant-numeric:tabular-nums}
+.x{border:0;background:var(--line);border-radius:8px;width:34px;height:34px;font-size:15px;color:var(--muted);cursor:pointer;flex-shrink:0}
+.banner{background:#fef3c7;color:#78350f;padding:10px 14px;font-size:14px}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
+.stat-row b{display:block;font-size:22px}
+.stat-row span{font-size:12px;color:var(--muted);font-weight:700}
+.check{display:flex;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line)}
+.check input{width:22px;height:22px}
+.empty{text-align:center;padding:26px 10px}
+.empty .big{font-size:40px}
+</style>
+</head>
+<body>
+<header><div class="brand"><span>⚽</span><span id="teamName">Match Stats</span></div><span id="sync" class="sync"></span></header>
+<div id="banner" class="banner hidden"></div>
+<main id="view"></main>
+<nav>
+  <button data-act="tab" data-tab="matches">⚽<span>Matches</span></button>
+  <button data-act="tab" data-tab="squad">👥<span>Squad</span></button>
+  <button data-act="tab" data-tab="stats">📊<span>Season</span></button>
+  <button data-act="tab" data-tab="settings">⚙️<span>Settings</span></button>
+</nav>
+<div id="sheetWrap" class="sheetWrap hidden"><div class="sheet" id="sheet"></div></div>
+<div id="toast" class="toast hidden"></div>
+<script>
+(function(){
+'use strict';
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyBcZX2ZL0q_7CcvjxjlV9-TbK2G5MAxzbk",
+  authDomain:"estrella-stats.firebaseapp.com",
+  projectId:"estrella-stats",
+  storageBucket:"estrella-stats.firebasestorage.app",
+  messagingSenderId:"738865554942",
+  appId:"1:738865554942:web:51d99d30e76cd86cd08caf"
+};
+const KEY='grassroots-stats:v1';
+const SHEET_KEY='lcUYhjLVrMHXJi-z1z3UT-bY';
+const STAT_DEFS=[
+  {k:'goal',label:'Goal',icon:'⚽',col:'G'},
+  {k:'assist',label:'Assist',icon:'🅰️',col:'A'},
+  {k:'shot_on',label:'Shot on target',icon:'🎯',col:'SoT'},
+  {k:'shot_off',label:'Shot off target',icon:'↗️',col:'Off'},
+  {k:'save',label:'Save',icon:'🧤',col:'Sv'},
+  {k:'tackle',label:'Tackle',icon:'🦵',col:'Tk'},
+  {k:'interception',label:'Interception',icon:'✋',col:'Int'},
+  {k:'keypass',label:'Key pass',icon:'🔑',col:'KP'},
+  {k:'block',label:'Block',icon:'🛡️',col:'Blk'},
+  {k:'dribble',label:'Beat a player',icon:'💨',col:'Drb'},
+  {k:'yellow',label:'Yellow card',icon:'🟨',col:'YC'},
+  {k:'red',label:'Red card',icon:'🟥',col:'RC'}
+];
+const CARDS=['yellow','red'];
+const STAT=Object.fromEntries(STAT_DEFS.map(s=>[s.k,s]));
+const DEFAULT_SETTINGS={teamName:'Estrella',halfLen:35,stats:['goal','assist','shot_on','shot_off','save','tackle']};
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const clone=o=>JSON.parse(JSON.stringify(o));
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+
+let S={players:{},matches:{},settings:clone(DEFAULT_SETTINGS)};
+let pending={};const inflight=new Set();
+let db=null,downloads=null,readOnly=false,dbState='connecting';
+let ui={tab:'matches',view:'matches',id:null,season:'all',sort:'goal',showArchived:false};
+let lastUndo=null,confirmFn=null,deferRender=false,toastTimer=null,retryTimer=null;
+let sheetQ={up:{},del:{},last:null,lastErr:null},sheetBusy=false;
+try{const q=JSON.parse(localStorage.getItem(KEY+':sheet')||'null');if(q)sheetQ=Object.assign(sheetQ,q);}catch(e){}
+function saveSheetQ(){try{localStorage.setItem(KEY+':sheet',JSON.stringify(sheetQ))}catch(e){}}
+
+/* ---------- storage ---------- */
+function loadLocal(){try{const raw=localStorage.getItem(KEY);if(!raw)return;const d=JSON.parse(raw);
+  if(d.S){S.players=d.S.players||{};S.matches=d.S.matches||{};S.settings=Object.assign(clone(DEFAULT_SETTINGS),d.S.settings||{});}
+  pending=d.pending||{};if(d.ui)ui=Object.assign(ui,d.ui);}catch(e){}}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify({S,pending,ui}))}catch(e){}}
+const pathOf=(kind,id)=>kind==='settings'?'settings/main':kind+'/'+id;
+function dataAt(path){const [k,id]=path.split('/');if(k==='settings')return S.settings;return S[k]&&S[k][id];}
+function save(kind,id){const o=kind==='settings'?S.settings:S[kind][id];if(!o)return;o.updatedAt=Date.now();pending[pathOf(kind,id)]='set';persist();flush();updateSync();}
+function removeDoc(kind,id){delete S[kind][id];pending[pathOf(kind,id)]='del';persist();flush();updateSync();}
+function flush(){if(!db||readOnly)return;for(const p of Object.keys(pending)){if(!inflight.has(p))writeOne(p);}updateSync();}
+async function writeOne(path){
+  const op=pending[path];delete pending[path];inflight.add(path);updateSync();
+  try{const ref=db.doc(path);
+    if(op==='del')await ref.delete();
+    else{const d=dataAt(path);if(d){const body=clone(d);delete body.id;await ref.set(body);}}
+    dbState='ok';
+  }catch(e){const code=e&&e.code;
+    if(!pending[path])pending[path]=op;
+    if(code==='permission-denied')showBanner('The online database refused this save (check the Firestore rules). Your changes are safe on this phone and will sync once it’s fixed.');
+    else if(code==='resource-exhausted')showBanner('Today’s free online limit has been reached. Changes are kept on this phone and will sync later.');
+    dbState='offline';scheduleRetry();
+  }finally{inflight.delete(path);persist();updateSync();
+    if(pending[path]&&!readOnly&&dbState==='ok')writeOne(path);}
+}
+function scheduleRetry(){if(retryTimer)return;retryTimer=setTimeout(()=>{retryTimer=null;dbState='connecting';flush();},8000);}
+window.addEventListener('online',()=>flush());
+setInterval(()=>{if(Object.keys(pending).length&&!inflight.size)flush();},15000);
+
+const firstFull={};
+function applyColl(kind,snap){let changed=false;
+  for(const ch of snap.docChanges()){const id=ch.doc.id,path=kind+'/'+id;
+    if(pending[path]||inflight.has(path))continue;
+    if(ch.type==='removed'){if(S[kind][id]){delete S[kind][id];changed=true;}continue;}
+    const r=ch.doc.data();if(!r||typeof r!=='object')continue;
+    const l=S[kind][id];
+    if(!l||(+r.updatedAt||0)>=(+l.updatedAt||0)){const o=clone(r);o.id=id;S[kind][id]=o;changed=true;}
+  }
+  if(!snap.metadata.fromCache&&!firstFull[kind]){firstFull[kind]=true;const ids=new Set(snap.docs.map(d=>d.id));
+    for(const id of Object.keys(S[kind])){const p=kind+'/'+id;if(!ids.has(id)&&!pending[p]&&!inflight.has(p)){delete S[kind][id];changed=true;}}}
+  if(changed){persist();rerender();}
+}
+function applySettings(snap){if(pending['settings/main']||inflight.has('settings/main'))return;
+  if(snap.exists){const r=snap.data();if((+r.updatedAt||0)>=(+S.settings.updatedAt||0)){S.settings=Object.assign(clone(DEFAULT_SETTINGS),clone(r));persist();rerender();}}}
+function subscribe(){
+  const got=new Set();
+  const timer=setTimeout(()=>{if(got.size<3){dbState='offline';updateSync();}},10000);
+  const mark=(k,snap)=>{if(!snap.metadata.fromCache){got.add(k);dbState='ok';if(got.size>=3)clearTimeout(timer);updateSync();}};
+  const onErr=e=>{clearTimeout(timer);dbState='offline';updateSync();
+    if(e&&e.code==='permission-denied')showBanner('The online database won’t let this page read the data (check the Firestore rules and that Anonymous sign-in is turned on).');};
+  db.collection('players').onSnapshot({includeMetadataChanges:true},s=>{applyColl('players',s);mark('p',s);},onErr);
+  db.collection('matches').onSnapshot({includeMetadataChanges:true},s=>{applyColl('matches',s);mark('m',s);},onErr);
+  db.doc('settings/main').onSnapshot({includeMetadataChanges:true},s=>{applySettings(s);mark('s',s);},onErr);
+}
+function updateSync(){const el=$('#sync');let t;
+  const busy=inflight.size||Object.keys(pending).length;
+  if(dbState==='none')t='📱 This phone only';
+  else if(readOnly)t='📱 Phone only';
+  else if(busy)t=dbState==='offline'||!navigator.onLine?'📱 Saved on phone – will sync':'⏳ Saving…';
+  else if(dbState==='ok')t='✓ Saved';
+  else if(dbState==='offline')t='📶 Offline';
+  else t='…';
+  el.textContent=t;}
+function showBanner(msg){const b=$('#banner');b.textContent=msg;b.classList.remove('hidden');}
+
+/* ---------- helpers ---------- */
+function playersSorted(all){return Object.values(S.players).filter(p=>all||p.active!==false)
+  .sort((a,b)=>numVal(a)-numVal(b)||String(a.name).localeCompare(String(b.name)));}
+function numVal(p){const n=parseInt(p&&p.number,10);return isNaN(n)?999:n;}
+function pname(pid){const p=S.players[pid];if(!p)return'(removed)';const parts=String(p.name).trim().split(/\s+/);const f=parts[0];
+  const clash=Object.values(S.players).some(q=>q.id!==p.id&&String(q.name).trim().split(/\s+/)[0].toLowerCase()===f.toLowerCase());
+  return clash&&parts.length>1?f+' '+parts[parts.length-1][0]:f;}
+function badge(pid){const p=S.players[pid];const n=p&&p.number!=null&&p.number!==''?p.number:'–';return `<span class="num">${esc(n)}</span>`;}
+function fmtDate(d){if(!d)return'';try{return new Date(d+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}catch(e){return d}}
+function mmss(s){s=Math.max(0,Math.floor(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+function minuteOf(t){return (Math.floor(t/60)+1)+'′';}
+function seasonOf(d){if(!d)return'?';const y=+d.slice(0,4),m=+d.slice(5,7);const s=m>=7?y:y-1;return s+'/'+String((s+1)%100).padStart(2,'0');}
+function enabledStats(){return (S.settings.stats||[]).filter(k=>STAT[k]&&!CARDS.includes(k));}
+function colsFor(ms){return enabledStats().concat(CARDS.filter(k=>ms.some(m=>(m.events||[]).some(e=>e.type===k))));}
+function sentOff(m,pid){return (m.events||[]).some(e=>e.type==='red'&&e.pid===pid);}
+
+function clockNow(m){const c=m.clock||{};return (c.base||0)+(c.running&&c.startedAt?Math.max(0,(Date.now()-c.startedAt)/1000):0);}
+function evSorted(m){return (m.events||[]).slice().sort((a,b)=>a.t-b.t||(a.at||0)-(b.at||0));}
+function onPitch(m){const st={};for(const e of evSorted(m)){if(e.type==='on')st[e.pid]=true;else if(e.type==='off')st[e.pid]=false;}
+  return Object.keys(st).filter(k=>st[k]).sort((a,b)=>numVal(S.players[a])-numVal(S.players[b]));}
+function secsPlayed(m,pid,tEnd){let on=null,tot=0;for(const e of evSorted(m)){if(e.pid!==pid)continue;
+  if(e.type==='on'&&on===null)on=e.t;else if(e.type==='off'&&on!==null){tot+=Math.max(0,e.t-on);on=null;}}
+  if(on!==null)tot+=Math.max(0,tEnd-on);return tot;}
+function endT(m){return m.status==='done'||m.period==='FT'?(m.endT!=null?m.endT:clockNow(m)):clockNow(m);}
+function score(m){let us=0,them=0;for(const e of m.events||[]){if(e.type==='goal')us++;else if(e.type==='opp_goal')them++;}return [us,them];}
+function resultOf(m){const [a,b]=score(m);return a>b?'W':a<b?'L':'D';}
+function count(m,pid,k){return (m.events||[]).filter(e=>e.pid===pid&&e.type===k).length;}
+function cur(){return ui.id?S.matches[ui.id]:null;}
+function mkEvent(m,type,pid,extra){const e={id:uid(),t:Math.round(clockNow(m)),type,pid:pid||null,at:Date.now()};if(extra)Object.assign(e,extra);return e;}
+function addEvent(m,type,pid,extra){const e=Object.assign({id:uid(),t:Math.round(clockNow(m)),type,pid:pid||null,at:Date.now()},extra||{});
+  m.events=m.events||[];m.events.push(e);save('matches',m.id);return e;}
+function periodLabel(m){return {pre:'Pre-match',1:'1st half',HT:'Half time',2:'2nd half',FT:'Full time'}[m.period]||'';}
+
+/* ---------- render ---------- */
+function rerender(){const a=document.activeElement;if(a&&$('#view').contains(a)&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)){deferRender=true;return;}render();}
+document.addEventListener('focusout',()=>{if(deferRender){deferRender=false;setTimeout(render,0);}});
+function render(){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===ui.tab));
+  $('#teamName').textContent=S.settings.teamName||'Match Stats';
+  document.title=(S.settings.teamName||'Team')+' Match Stats';
+  let m=cur();
+  if(['setup','live','summary'].includes(ui.view)&&!m){ui.view='matches';ui.id=null;}
+  let h='';
+  switch(ui.view){
+    case 'setup':h=viewSetup(m);break;
+    case 'live':h=viewLive(m);break;
+    case 'summary':h=viewSummary(m);break;
+    case 'squad':h=viewSquad();break;
+    case 'stats':h=viewStats();break;
+    case 'settings':h=viewSettings();break;
+    default:h=viewMatches();
+  }
+  $('#view').innerHTML=h;persist();
+}
+
+function viewMatches(){
+  const ms=Object.values(S.matches);
+  const open=ms.filter(m=>m.status!=='done').sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  const done=ms.filter(m=>m.status==='done').sort((a,b)=>String(b.date).localeCompare(String(a.date))||(b.createdAt||0)-(a.createdAt||0));
+  let h='';
+  if(!playersSorted().length){
+    h+=`<div class="card empty"><div class="big">👥</div><h2>Add your squad first</h2><p class="muted">Add your players once, then pick who starts each match.</p><button class="btn pri" data-act="tab" data-tab="squad">Add players</button></div>`;
+  }
+  for(const m of open){const [a,b]=score(m);
+    h+=`<div class="card item tap" data-act="open" data-id="${esc(m.id)}" style="border-left:5px solid #1d4ed8"><div class="grow"><div style="font-weight:800">vs ${esc(m.opponent||'Opposition')}</div><div class="muted small">${esc(fmtDate(m.date))} · ${m.status==='setup'?'Picking lineup':esc(periodLabel(m))}</div></div><span class="chip live">${a}–${b}</span><span class="btn sm pri">Resume</span></div>`;}
+  h+=`<button class="btn pri block big" data-act="newMatch" style="margin-bottom:14px">＋ New match</button>`;
+  if(done.length){
+    h+=`<div class="card"><h2>Results</h2>`;
+    for(const m of done){const [a,b]=score(m),r=resultOf(m);
+      h+=`<div class="item tap" data-act="open" data-id="${esc(m.id)}"><div class="grow"><div style="font-weight:700">vs ${esc(m.opponent||'Opposition')} <span class="muted small">(${m.venue==='A'?'A':'H'})</span></div><div class="muted small">${esc(fmtDate(m.date))} · ${esc(m.comp||'')}</div></div><span class="chip ${r}">${r} ${a}–${b}</span></div>`;}
+    h+=`</div>`;
+  }else if(playersSorted().length&&!open.length){
+    h+=`<p class="muted" style="text-align:center">No matches yet. Tap <b>New match</b> on match day.</p>`;
+  }
+  return h;
+}
+
+function viewSetup(m){
+  const ps=playersSorted();const sq=m.squad||{};
+  const c={start:0,bench:0,out:0};ps.forEach(p=>c[sq[p.id]||'bench']++);
+  let h=`<button class="btn sm" data-act="home">‹ Matches</button>
+  <div class="card" style="margin-top:10px"><h2>Match details</h2>
+  <label class="f">Opposition</label><input data-mf="opponent" value="${esc(m.opponent)}" placeholder="e.g. Musselburgh Windsor" autocomplete="off">
+  <div class="row"><div class="grow"><label class="f">Date</label><input type="date" data-mf="date" value="${esc(m.date)}"></div>
+  <div style="width:110px"><label class="f">Half length</label><input type="number" inputmode="numeric" data-mf="halfLen" value="${esc(m.halfLen)}"></div></div>
+  <div class="row"><div class="grow"><label class="f">Home / Away</label><div class="seg"><button type="button" class="${m.venue!=='A'?'on':''}" data-act="setVenue" data-v="H">Home</button><button type="button" class="${m.venue==='A'?'on':''}" data-act="setVenue" data-v="A">Away</button></div></div>
+  <div class="grow"><label class="f">Type</label><select data-mf="comp">${['League','Cup','Friendly','Tournament','Festival'].map(o=>`<option ${m.comp===o?'selected':''}>${o}</option>`).join('')}</select></div></div>
+  </div>
+  <div class="card"><h2>Lineup</h2><div class="muted small" style="margin-bottom:6px">Starting <b>${c.start}</b> · Subs <b>${c.bench}</b> · Not playing <b>${c.out}</b></div>`;
+  for(const p of ps){const v=sq[p.id]||'bench';
+    h+=`<div class="item">${badge(p.id)}<div class="grow" style="font-weight:700">${esc(p.name)}</div>
+    <div class="seg" style="width:190px"><button type="button" class="${v==='start'?'on s':''}" data-act="setSq" data-pid="${esc(p.id)}" data-v="start">Start</button><button type="button" class="${v==='bench'?'on':''}" data-act="setSq" data-pid="${esc(p.id)}" data-v="bench">Sub</button><button type="button" class="${v==='out'?'on o':''}" data-act="setSq" data-pid="${esc(p.id)}" data-v="out">Out</button></div></div>`;}
+  if(!ps.length)h+=`<p class="muted">No players yet – add them in Squad.</p>`;
+  h+=`</div><button class="btn pri block big" data-act="confirmSetup">Ready for kick-off ▶</button>
+  <button class="btn danger block" style="margin-top:10px" data-act="askDelMatch">Delete match</button>`;
+  return h;
+}
+
+function tileBadges(m,pid){let s='';const g=count(m,pid,'goal'),a=count(m,pid,'assist');
+  if(g)s+='⚽'+(g>1?'×'+g:'')+' ';if(a)s+='🅰️'+(a>1?'×'+a:'')+' ';if(count(m,pid,'yellow'))s+='🟨';if(count(m,pid,'red'))s+='🟥';return s;}
+
+function viewLive(m){
+  const t=clockNow(m),[us,them]=score(m),c=m.clock||{};const on=onPitch(m);
+  const playersIn=new Set(on);
+  const bench=playersSorted(true).filter(p=>!sentOff(m,p.id)&&!playersIn.has(p.id)&&(m.squad||{})[p.id]!=='out'&&(p.active!==false||(m.squad||{})[p.id]));
+  let h=`<div class="row" style="justify-content:space-between"><button class="btn sm" data-act="home">‹ Matches</button><span class="muted small">${esc(fmtDate(m.date))}</span></div>
+  <div class="card" style="margin-top:10px"><div class="score">
+   <div class="side"><div class="tn">${esc(S.settings.teamName||'Us')}</div><button class="goals" data-act="ourGoal">${us}</button></div>
+   <div><div class="clock" id="clk">${mmss(t)}</div><span class="chip ${c.running?'live':''}">${esc(periodLabel(m))}${c.running?'':(m.period===1||m.period===2?' · paused':'')}</span></div>
+   <div class="side"><div class="tn">${esc(m.opponent||'Opposition')}</div><button class="goals opp" data-act="oppGoal">${them}</button></div>
+  </div><div class="muted small" style="text-align:center;margin-top:6px">Tap a score to add a goal</div>`;
+  const P=m.period;
+  if(P==='pre')h+=`<div class="btns"><button class="btn" data-act="editLineup">Edit lineup</button><button class="btn pri" data-act="kickoff">Kick off ▶</button></div>`;
+  else if(P===1||P===2)h+=`<div class="btns">${c.running?`<button class="btn" data-act="pause">Pause ⏸</button>`:`<button class="btn pri" data-act="resume">Resume ▶</button>`}<button class="btn dark" data-act="${P===1?'halftime':'fulltime'}">${P===1?'Half time':'Full time'}</button></div>`;
+  else if(P==='HT')h+=`<div class="btns"><button class="btn pri" data-act="secondHalf">Start 2nd half ▶</button></div>`;
+  h+=`</div>`;
+  if(P==='FT'){
+    const played=playersSorted(true).filter(p=>secsPlayed(m,p.id,endT(m))>0);
+    h+=`<div class="card"><h2>⭐ Player of the Match</h2><div class="tiles">`;
+    for(const p of played)h+=`<button class="tile ${m.potm===p.id?'sel':''}" data-act="setPotm" data-pid="${esc(p.id)}"><div class="n">${esc(p.number!=null&&p.number!==''?p.number:'–')}</div><div class="nm">${esc(pname(p.id))}</div></button>`;
+    h+=`</div><label class="f">Match notes (optional)</label><textarea data-mf="notes" placeholder="Anything to remember…">${esc(m.notes||'')}</textarea>
+    <div class="btns"><button class="btn" data-act="back2nd">‹ Back to 2nd half</button><button class="btn pri" data-act="finish">Save match ✓</button></div></div>`;
+  }
+  h+=`<div class="card"><h2>On the pitch <span class="muted small">(${on.length}) · tap to record</span></h2><div class="tiles">`;
+  for(const pid of on){const p=S.players[pid]||{};
+    h+=`<button class="tile" data-act="tapPlayer" data-pid="${esc(pid)}"><div class="n">${esc(p.number!=null&&p.number!==''?p.number:'–')}</div><div class="nm">${esc(pname(pid))}</div><div class="mn pmin" data-pid="${esc(pid)}">${mmss(secsPlayed(m,pid,t))}</div><div class="bd">${tileBadges(m,pid)}</div></button>`;}
+  if(!on.length)h+=`<p class="muted">Nobody on – tap a sub below to bring them on.</p>`;
+  h+=`</div>`;
+  if(bench.length){h+=`<h3>Subs · tap to bring on</h3><div class="tiles">`;
+    for(const p of bench)h+=`<button class="tile bench" data-act="tapBench" data-pid="${esc(p.id)}"><div class="n">${esc(p.number!=null&&p.number!==''?p.number:'–')}</div><div class="nm">${esc(pname(p.id))}</div><div class="mn pmin" data-pid="${esc(p.id)}">${mmss(secsPlayed(m,p.id,t))}</div><div class="bd">${tileBadges(m,p.id)}</div></button>`;
+    h+=`</div>`;}
+  h+=`</div>`;
+  const evs=evSorted(m).filter(e=>!(e.auto)).reverse();
+  h+=`<div class="card"><h2>Match log</h2>`;
+  if(!evs.length)h+=`<p class="muted small">Nothing yet. Every tap shows here – tap ✕ to remove a mistake.</p>`;
+  for(const e of evs)h+=`<div class="ev"><span class="t">${minuteOf(e.t)}</span><span class="grow">${evText(e)}</span><button class="x" data-act="delEv" data-eid="${esc(e.id)}" aria-label="Remove">✕</button></div>`;
+  h+=`</div>`;
+  return h;
+}
+function evText(e){
+  if(e.type==='opp_goal')return '⚽ <b>Opposition goal</b>';
+  if(e.type==='goal'&&!e.pid)return '⚽ <b>Goal</b> – own goal / unknown';
+  if(e.type==='on')return '🔼 <b>'+esc(pname(e.pid))+'</b> on';
+  if(e.type==='off')return '🔽 <b>'+esc(pname(e.pid))+'</b> off';
+  const s=STAT[e.type];return (s?s.icon+' '+esc(s.label):esc(e.type))+' – <b>'+esc(pname(e.pid))+'</b>';
+}
+
+function goalsList(m){const g=evSorted(m).filter(e=>e.type==='goal');const by={};const order=[];
+  for(const e of g){const k=e.pid||'_';if(!by[k]){by[k]=[];order.push(k);}by[k].push(minuteOf(e.t));}
+  return order.map(k=>({name:k==='_'?'Own goal / unknown':pname(k),mins:by[k]}));}
+
+function viewSummary(m){
+  const [a,b]=score(m),r=resultOf(m),te=endT(m);
+  const stats=enabledStats();
+  const extra=STAT_DEFS.filter(s=>!stats.includes(s.k)&&(m.events||[]).some(e=>e.type===s.k)).map(s=>s.k);
+  const cols=stats.concat(extra);
+  let h=`<button class="btn sm" data-act="home">‹ Matches</button>
+  <div class="card" style="margin-top:10px;text-align:center"><div class="muted small">${esc(fmtDate(m.date))} · ${esc(m.comp||'')} · ${m.venue==='A'?'Away':'Home'}</div>
+  <div style="font-size:22px;font-weight:900;margin:8px 0">${esc(S.settings.teamName||'Us')} ${a} – ${b} ${esc(m.opponent||'Opposition')}</div><span class="chip ${r}">${{W:'Win',D:'Draw',L:'Loss'}[r]}</span>`;
+  const gl=goalsList(m);
+  if(gl.length)h+=`<div style="margin-top:12px">${gl.map(g=>`⚽ ${esc(g.name)} ${g.mins.join(', ')}`).join('<br>')}</div>`;
+  if(m.potm)h+=`<div style="margin-top:10px;font-weight:800">⭐ Player of the Match: ${esc(pname(m.potm))}</div>`;
+  if(m.notes)h+=`<div class="muted small" style="margin-top:10px;white-space:pre-wrap;text-align:left">${esc(m.notes)}</div>`;
+  h+=`</div><div class="card"><h2>Player stats</h2><div class="tablewrap"><table><tr><th>Player</th><th>Mins</th>${cols.map(k=>`<th>${STAT[k].col}</th>`).join('')}</tr>`;
+  const pids=new Set();(m.events||[]).forEach(e=>e.pid&&pids.add(e.pid));Object.keys(m.squad||{}).forEach(p=>{if(m.squad[p]!=='out')pids.add(p)});
+  const rows=[...pids].map(pid=>({pid,sec:secsPlayed(m,pid,te)})).filter(r=>r.sec>0||cols.some(k=>count(m,r.pid,k))).sort((x,y)=>numVal(S.players[x.pid])-numVal(S.players[y.pid]));
+  for(const r of rows)h+=`<tr><td>${esc(pname(r.pid))}${m.potm===r.pid?' ⭐':''}</td><td>${Math.round(r.sec/60)}</td>${cols.map(k=>{const n=count(m,r.pid,k);return `<td>${n||'<span class="muted">·</span>'}</td>`}).join('')}</tr>`;
+  h+=`</table></div></div>
+  ${reportCard(m)}
+  <button class="btn pri block" data-act="claudeReport" style="margin-bottom:10px">✨ Match report with Claude</button>
+  <button class="btn block" data-act="copyReport">📋 Copy quick summary</button>
+  <div class="btns"><button class="btn" data-act="reopen">✏️ Edit match</button><button class="btn danger" data-act="askDelMatch">Delete</button></div>`;
+  return h;
+}
+
+function viewSquad(){
+  const ps=playersSorted();const arch=playersSorted(true).filter(p=>p.active===false);
+  let h=`<div class="card"><h2>Add a player</h2><form data-form="addPlayer" class="row"><input name="num" type="text" inputmode="numeric" placeholder="No." style="width:70px" autocomplete="off"><input name="name" class="grow" placeholder="Player name" autocomplete="off"><button class="btn pri" type="submit">Add</button></form>
+  <details style="margin-top:12px"><summary class="muted" style="font-weight:700">Paste a whole list</summary>
+  <p class="muted small">One player per line. Put the shirt number first if you have it, e.g. <b>7 Esme</b>.</p>
+  <form data-form="bulkAdd"><textarea name="list" placeholder="1 Name&#10;2 Name&#10;Name"></textarea><button class="btn pri block" type="submit" style="margin-top:8px">Add all</button></form></details></div>
+  <div class="card"><h2>Squad <span class="muted small">(${ps.length})</span></h2>`;
+  if(!ps.length)h+=`<p class="muted">No players yet.</p>`;
+  for(const p of ps)h+=`<div class="item tap" data-act="editPlayer" data-pid="${esc(p.id)}">${badge(p.id)}<div class="grow" style="font-weight:700">${esc(p.name)}</div><span class="muted">Edit ›</span></div>`;
+  h+=`</div>`;
+  if(arch.length){h+=`<div class="card"><button class="btn sm" data-act="toggleArch">${ui.showArchived?'Hide':'Show'} removed players (${arch.length})</button>`;
+    if(ui.showArchived)for(const p of arch)h+=`<div class="item">${badge(p.id)}<div class="grow muted">${esc(p.name)}</div><button class="btn sm" data-act="restorePlayer" data-pid="${esc(p.id)}">Restore</button></div>`;
+    h+=`</div>`;}
+  return h;
+}
+
+function aggregate(matches){
+  const rows={};let total=0;
+  const row=pid=>rows[pid]||(rows[pid]={pid,apps:0,starts:0,sec:0,potm:0,st:{}});
+  for(const p of playersSorted())row(p.id);
+  for(const m of matches){const te=endT(m);total+=te;const pids=new Set();
+    Object.keys(m.squad||{}).forEach(p=>pids.add(p));(m.events||[]).forEach(e=>e.pid&&pids.add(e.pid));
+    for(const pid of pids){const sec=secsPlayed(m,pid,te),started=(m.squad||{})[pid]==='start';const r=row(pid);
+      if(sec>0||started)r.apps++;if(started)r.starts++;r.sec+=sec;if(m.potm===pid)r.potm++;}
+    for(const e of m.events||[])if(e.pid&&STAT[e.type]){const r=row(e.pid);r.st[e.type]=(r.st[e.type]||0)+1;}
+  }
+  return {rows:Object.values(rows),total};
+}
+function statsMatches(){return Object.values(S.matches).filter(m=>m.status==='done'&&(ui.season==='all'||seasonOf(m.date)===ui.season));}
+function sortedRows(agg){const k=ui.sort;const v=r=>k==='name'?0:k==='apps'?r.apps:k==='starts'?r.starts:k==='mins'||k==='pct'?r.sec:k==='potm'?r.potm:(r.st[k]||0);
+  return agg.rows.slice().sort((a,b)=>k==='name'?String(pname(a.pid)).localeCompare(pname(b.pid)):(v(b)-v(a))||(b.sec-a.sec)||String(pname(a.pid)).localeCompare(pname(b.pid)));}
+
+function viewStats(){
+  const seasons=[...new Set(Object.values(S.matches).filter(m=>m.status==='done').map(m=>seasonOf(m.date)))].sort().reverse();
+  if(ui.season!=='all'&&!seasons.includes(ui.season))ui.season='all';
+  const ms=statsMatches();const agg=aggregate(ms);
+  let w=0,d=0,l=0,gf=0,ga=0;ms.forEach(m=>{const [a,b]=score(m);gf+=a;ga+=b;a>b?w++:a<b?l++:d++;});
+  let h=`<div class="card"><div class="row"><h2 class="grow" style="margin:0">Season stats</h2><select data-act-change="season" style="width:auto">${['all'].concat(seasons).map(s=>`<option value="${esc(s)}" ${ui.season===s?'selected':''}>${s==='all'?'All matches':esc(s)}</option>`).join('')}</select></div>
+  <div class="stat-row" style="margin-top:12px"><div><b>${ms.length}</b><span>Played</span></div><div><b>${w}-${d}-${l}</b><span>W-D-L</span></div><div><b>${gf}</b><span>Scored</span></div><div><b>${ga}</b><span>Conceded</span></div></div></div>`;
+  if(!ms.length)return h+`<p class="muted" style="text-align:center">Stats appear here once you’ve saved a match.</p>`;
+  const cols=colsFor(ms);
+  const th=(k,lab)=>`<th class="${ui.sort===k?'on':''}" data-act="sortBy" data-k="${k}">${lab}${ui.sort===k?' ▾':''}</th>`;
+  h+=`<div class="card"><div class="muted small" style="margin-bottom:6px">Tap a heading to sort. <b>%</b> = share of total match time played.</div><div class="tablewrap"><table><tr>${th('name','Player')}${th('apps','Apps')}${th('starts','St')}${th('mins','Mins')}${th('pct','%')}${cols.map(k=>th(k,STAT[k].col)).join('')}${th('potm','⭐')}</tr>`;
+  for(const r of sortedRows(agg)){const pct=agg.total?Math.round(r.sec/agg.total*100):0;
+    h+=`<tr><td>${esc(pname(r.pid))}</td><td>${r.apps}</td><td>${r.starts}</td><td>${Math.round(r.sec/60)}</td><td>${pct}</td>${cols.map(k=>`<td>${r.st[k]||'<span class="muted">·</span>'}</td>`).join('')}<td>${r.potm||'<span class="muted">·</span>'}</td></tr>`;}
+  h+=`</table></div><div class="muted small" style="margin-top:8px">${cols.map(k=>STAT[k].col+' = '+STAT[k].label).join(' · ')} · St = starts</div></div>
+  <div class="btns">${downloads?`<button class="btn pri" data-act="dlCsv">⬇ Download CSV</button>`:''}<button class="btn" data-act="copyCsv">📋 Copy for Sheets</button></div>`;
+  return h;
+}
+function statsCsv(){const ms=statsMatches(),agg=aggregate(ms),cols=colsFor(ms);
+  const q=v=>{v=String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  const lines=[['Player','Number','Apps','Starts','Minutes','% time'].concat(cols.map(k=>STAT[k].label),['POTM']).map(q).join(',')];
+  for(const r of sortedRows(agg)){const p=S.players[r.pid]||{};lines.push([pname(r.pid),p.number==null?'':p.number,r.apps,r.starts,Math.round(r.sec/60),agg.total?Math.round(r.sec/agg.total*100):0].concat(cols.map(k=>r.st[k]||0),[r.potm]).map(q).join(','));}
+  return lines.join('\n');}
+
+/* ---------- Google Sheet sync ---------- */
+function sheetUrl(){const u=String(S.settings.sheetUrl||'').trim();return /^https:\/\/script\.google\.com\//.test(u)?u:'';}
+function queueSheet(id,del){if(del){delete sheetQ.up[id];sheetQ.del[id]=1;}else{delete sheetQ.del[id];sheetQ.up[id]=1;}saveSheetQ();sendToSheet();}
+function fullName(pid){const p=S.players[pid];return p?String(p.name):'(removed)';}
+function sheetPayload(upIds,delIds){
+  const statCols=STAT_DEFS.map(s=>s.label);
+  const headers={
+    matches:['Match ID','Date','Season','Opponent','H/A','Type','For','Against','Result','Scorers','Assists','Player of the Match','Notes','Report'],
+    players:['Match ID','Date','Season','Opponent','H/A','Type','Player','No.','Started','Minutes'].concat(statCols,['POTM'])
+  };
+  const matches=[];
+  for(const id of upIds){const m=S.matches[id];if(!m||m.status!=='done')continue;
+    const [a,b]=score(m),te=endT(m),r=resultOf(m),base=[m.id,m.date||'',seasonOf(m.date),m.opponent||'Opposition',m.venue==='A'?'A':'H',m.comp||''];
+    const gl=goalsList(m).map(g=>g.name+(g.mins.length>1?' ×'+g.mins.length:'')).join(', ');
+    const as={};(m.events||[]).filter(e=>e.type==='assist'&&e.pid).forEach(e=>as[e.pid]=(as[e.pid]||0)+1);
+    const al=Object.keys(as).map(p=>pname(p)+(as[p]>1?' ×'+as[p]:'')).join(', ');
+    const matchRow=base.concat([a,b,{W:'W',D:'D',L:'L'}[r],gl,al,m.potm?fullName(m.potm):'',m.notes||'',m.report||'']);
+    const pids=new Set();Object.keys(m.squad||{}).forEach(p=>{if(m.squad[p]!=='out')pids.add(p)});(m.events||[]).forEach(e=>e.pid&&pids.add(e.pid));
+    const playerRows=[...pids].map(pid=>({pid,sec:secsPlayed(m,pid,te),st:(m.squad||{})[pid]==='start'}))
+      .filter(x=>x.sec>0||x.st||STAT_DEFS.some(s=>count(m,x.pid,s.k)))
+      .sort((x,y)=>numVal(S.players[x.pid])-numVal(S.players[y.pid]))
+      .map(x=>{const p=S.players[x.pid]||{};return base.concat([fullName(x.pid),p.number==null?'':p.number,x.st?'Yes':'No',Math.round(x.sec/60)],STAT_DEFS.map(s=>count(m,x.pid,s.k)),[m.potm===x.pid?1:0]);});
+    matches.push({id:m.id,matchRow,playerRows});
+  }
+  const done=Object.values(S.matches).filter(m=>m.status==='done');
+  const seasons=[...new Set(done.map(m=>seasonOf(m.date)))].sort().reverse();
+  const tRows=[];
+  for(const s of seasons){const agg=aggregate(done.filter(m=>seasonOf(m.date)===s));
+    agg.rows.filter(r=>r.apps>0).sort((x,y)=>y.sec-x.sec).forEach(r=>{const p=S.players[r.pid]||{};
+      tRows.push([s,fullName(r.pid),p.number==null?'':p.number,r.apps,r.starts,Math.round(r.sec/60),agg.total?Math.round(r.sec/agg.total*100):0].concat(STAT_DEFS.map(d=>r.st[d.k]||0),[r.potm]));});}
+  const totals={header:['Season','Player','No.','Apps','Starts','Minutes','% time'].concat(statCols,['POTM']),rows:tRows};
+  return {key:SHEET_KEY,team:S.settings.teamName||'',headers,matches,deleted:delIds,totals};
+}
+async function sendToSheet(){
+  const url=sheetUrl();if(!url||sheetBusy)return;
+  const upIds=Object.keys(sheetQ.up),delIds=Object.keys(sheetQ.del);if(!upIds.length&&!delIds.length)return;
+  sheetBusy=true;
+  try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(sheetPayload(upIds,delIds))});
+    upIds.forEach(id=>delete sheetQ.up[id]);delIds.forEach(id=>delete sheetQ.del[id]);sheetQ.last=Date.now();sheetQ.lastErr=null;
+  }catch(e){sheetQ.lastErr=Date.now();}
+  finally{sheetBusy=false;saveSheetQ();if(ui.view==='settings')rerender();}
+}
+window.addEventListener('online',()=>sendToSheet());
+setInterval(()=>sendToSheet(),60000);
+function sheetStatus(){const n=Object.keys(sheetQ.up).length+Object.keys(sheetQ.del).length;
+  if(!sheetUrl())return S.settings.sheetUrl?'That doesn’t look like a Google Apps Script link.':'Not connected yet.';
+  if(n)return `${n} match${n>1?'es':''} waiting to send${sheetQ.lastErr?' (no signal – will retry)':''}.`;
+  return sheetQ.last?'Last sent '+new Date(sheetQ.last).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'.':'Connected – sends when you save a match.';}
+
+function viewSettings(){
+  const en=new Set(enabledStats());
+  let h=`<div class="card"><h2>Team</h2><label class="f">Team name</label><input data-sf="teamName" value="${esc(S.settings.teamName)}" autocomplete="off">
+  <label class="f">Default half length (minutes)</label><input type="number" inputmode="numeric" data-sf="halfLen" value="${esc(S.settings.halfLen)}"></div>
+  <div class="card"><h2>Stats to record</h2><p class="muted small" style="margin-top:0">These are the buttons you get when you tap a player. Fewer buttons = easier on the touchline. Yellow and red cards are always available.</p>`;
+  for(const s of STAT_DEFS.filter(x=>!CARDS.includes(x.k)))h+=`<label class="check"><input type="checkbox" data-statk="${s.k}" ${en.has(s.k)?'checked':''}><span class="grow">${s.icon} ${esc(s.label)}</span></label>`;
+  h+=`</div><div class="card"><h2>Google Sheet</h2><p class="muted small" style="margin-top:0">Every saved match is sent to your Google Sheet, so the season record builds up there automatically. Only one coach needs to set this up – the link is shared.</p>
+  <label class="f">Sheet web app link</label><input data-sf="sheetUrl" value="${esc(S.settings.sheetUrl||'')}" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" inputmode="url">
+  <p class="muted small">${esc(sheetStatus())}</p>
+  ${sheetUrl()?`<button class="btn block" data-act="sheetAll">↻ Send all matches now</button>`:''}</div>
+  <div class="card"><h2>Backup</h2><p class="muted small" style="margin-top:0">Your data is saved online and shared with the other coaches${dbState==='none'?' – <b>but online saving isn’t available right now, so it’s only on this phone</b>':''}. A backup is a spare copy you can keep anywhere.</p>
+  <div class="btns">${downloads?`<button class="btn" data-act="dlBackup">⬇ Download</button>`:''}<button class="btn" data-act="copyBackup">📋 Copy</button></div>
+  <details style="margin-top:12px"><summary class="muted" style="font-weight:700">Restore from a backup</summary><form data-form="restore"><textarea name="json" placeholder="Paste backup text here"></textarea><button class="btn danger block" type="submit" style="margin-top:8px">Restore (adds to current data)</button></form></details></div>
+  <p class="muted small" style="text-align:center">Status: ${esc($('#sync').textContent)}</p>`;
+  return h;
+}
+
+/* ---------- sheet / toast ---------- */
+function openSheet(h){$('#sheet').innerHTML=h;$('#sheetWrap').classList.remove('hidden');}
+function closeSheet(){$('#sheetWrap').classList.add('hidden');$('#sheet').innerHTML='';}
+$('#sheetWrap').addEventListener('click',e=>{if(e.target.id==='sheetWrap')closeSheet();});
+function toast(msg,undo){const t=$('#toast');lastUndo=undo||null;
+  t.innerHTML=`<span>${esc(msg)}</span>${undo?'<button data-act="undo">Undo</button>':''}`;t.classList.remove('hidden');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.classList.add('hidden');lastUndo=null;},undo?5000:2200);}
+function askConfirm(msg,yesLabel,fn){confirmFn=fn;openSheet(`<h2>${esc(msg)}</h2><div class="btns"><button class="btn" data-act="closeSheet">Cancel</button><button class="btn danger" data-act="confirmYes">${esc(yesLabel)}</button></div>`);}
+async function copyText(txt,label){try{await navigator.clipboard.writeText(txt);toast((label||'Copied')+' ✓');return true;}
+  catch(e){openSheet(`<h2>Copy this</h2><p class="muted small">Press and hold in the box, then Select all → Copy.</p><textarea readonly style="min-height:220px">${esc(txt)}</textarea><button class="btn block" style="margin-top:8px" data-act="closeSheet">Done</button>`);return false;}}
+async function download(filename,data,fallbackLabel){if(!downloads)return copyText(data,fallbackLabel);
+  try{await downloads.save({filename,data});}catch(e){toast('Download didn’t happen – try Copy instead');}}
+
+/* ---------- player sheets ---------- */
+function sheetHead(m,pid){const p=S.players[pid]||{};return `<div class="row" style="margin-bottom:12px">${badge(pid)}<div class="grow"><div style="font-weight:800;font-size:18px">${esc(p.name||'(removed)')}</div><div class="muted small">${mmss(secsPlayed(m,pid,clockNow(m)))} played</div></div><button class="x" data-act="closeSheet">✕</button></div>`;}
+function playerPick(m,pids,act,extraAttr){return `<div class="tiles">${pids.map(pid=>{const p=S.players[pid]||{};return `<button class="tile" data-act="${act}" data-pid="${esc(pid)}" ${extraAttr||''}><div class="n">${esc(p.number!=null&&p.number!==''?p.number:'–')}</div><div class="nm">${esc(pname(pid))}</div></button>`}).join('')}</div>`;}
+
+/* ---------- Claude match report (copy prompt → paste into Claude app → paste report back) ---------- */
+const REPORT_STYLES={
+  parents:{label:'Parents’ group',instr:'Write a short, warm match report for the parents’ WhatsApp group: 80–150 words. A few emojis are fine. Mention the scorers and the Player of the Match, and thank the players. Plain text only – no headings, no markdown, no asterisks.'},
+  club:{label:'Club website',instr:'Write a match report for the club website and social media: a catchy headline on the first line, then 150–250 words in 2–4 short paragraphs. Plain text only – no markdown symbols or asterisks.'},
+  coach:{label:'Coach notes',instr:'Write private notes for the coaching staff only: short bullet points (start each with “•”) on what the stats show – attacking, defending, goalkeeping and how evenly game time was shared – then 2–3 things to work on at training. Constructive and factual. Up to 200 words. Plain text, no markdown.'}
+};
+let repStyle='parents';
+function matchDataText(m){
+  const [a,b]=score(m),te=endT(m),tm=S.settings.teamName||'Our team';
+  const L=[];
+  L.push(`Team: ${tm}`,`Opponent: ${m.opponent||'Opposition'}`,`Date: ${fmtDate(m.date)}`,`Competition: ${m.comp||'Match'} (${m.venue==='A'?'away':'home'})`,`Final score: ${tm} ${a} – ${b} ${m.opponent||'Opposition'} (${{W:'win',D:'draw',L:'loss'}[resultOf(m)]})`,`Halves: ${m.halfLen||'?'} minutes`);
+  const evs=evSorted(m).filter(e=>!e.auto);
+  const tl=[];
+  for(const e of evs){
+    if(e.type==='goal'){const as=evs.find(x=>x.type==='assist'&&x.link===e.id);tl.push(`${minuteOf(e.t)} GOAL ${tm}: ${e.pid?pname(e.pid):'own goal / unknown scorer'}${as?' (assist '+pname(as.pid)+')':''}`);}
+    else if(e.type==='opp_goal')tl.push(`${minuteOf(e.t)} GOAL ${m.opponent||'Opposition'}`);
+    else if(e.type==='yellow')tl.push(`${minuteOf(e.t)} Yellow card: ${pname(e.pid)}`);
+    else if(e.type==='red')tl.push(`${minuteOf(e.t)} Red card (sent off): ${pname(e.pid)}`);
+    else if(e.type==='off'&&e.link)continue;
+    else if(e.type==='on'&&e.t>0)tl.push(`${minuteOf(e.t)} Sub on: ${pname(e.pid)}`);
+    else if(e.type==='off')tl.push(`${minuteOf(e.t)} Sub off: ${pname(e.pid)}`);
+  }
+  if(tl.length)L.push('','Timeline:',...tl);
+  const pids=new Set();Object.keys(m.squad||{}).forEach(p=>{if((m.squad||{})[p]!=='out')pids.add(p)});(m.events||[]).forEach(e=>e.pid&&pids.add(e.pid));
+  const rows=[...pids].map(pid=>{const sec=secsPlayed(m,pid,te);const st=STAT_DEFS.filter(s=>count(m,pid,s.k)).map(s=>count(m,pid,s.k)+' '+s.label.toLowerCase()+(count(m,pid,s.k)>1&&!/s$/.test(s.label)?'s':''));
+    return {pid,sec,line:`${pname(pid)}${(m.squad||{})[pid]==='start'?' (started)':' (sub)'}: ${Math.round(sec/60)} mins${st.length?'; '+st.join(', '):''}`};}).filter(r=>r.sec>0).sort((x,y)=>y.sec-x.sec);
+  if(rows.length)L.push('','Players (minutes and recorded stats):',...rows.map(r=>r.line));
+  const tracked=enabledStats().map(k=>STAT[k].label.toLowerCase()).join(', ');
+  L.push('',`Stats the coach was recording: ${tracked}. A missing stat means none were recorded, not necessarily none happened.`);
+  if(m.potm)L.push(`Player of the Match: ${pname(m.potm)}`);
+  if(m.notes)L.push('',`Coach’s notes: ${m.notes}`);
+  return L.join('\n');
+}
+function reportPrompt(m,style){
+  const tm=S.settings.teamName||'the team';const st=REPORT_STYLES[style]||REPORT_STYLES.parents;
+  return `Please write a match report for ${tm}, a grassroots youth girls’ football team (under-14s) in Scotland.
+
+${st.instr}
+
+Rules:
+- Use only the facts in the match data below. Don’t invent moments, quotes, weather or anything else that isn’t there. If there’s not much data, keep it short.
+- Use the players’ first names exactly as given.
+${style==='coach'?'- Be honest but constructive.':'- Keep it positive and encouraging – these are young players. Never criticise an individual player.'}
+- British English.
+- Reply with the report only, no introduction.
+
+MATCH DATA
+${matchDataText(m)}`;
+}
+function reportCard(m){
+  if(!m.report)return '';
+  return `<div class="card"><h2>📝 Match report</h2><div style="white-space:pre-wrap;line-height:1.45">${esc(m.report)}</div>
+  <div class="btns"><button class="btn" data-act="shareSaved">📤 Share</button><button class="btn" data-act="editReport">✏️ Edit</button></div></div>`;
+}
+function styleSeg(){return `<div class="seg" id="repSeg">${Object.entries(REPORT_STYLES).map(([k,v])=>`<button type="button" class="${repStyle===k?'on':''}" data-act="repStyle" data-v="${k}">${esc(v.label)}</button>`).join('')}</div>`;}
+
+/* ---------- actions ---------- */
+const A={
+  redCard(d){const m=cur();askConfirm('Red card for '+pname(d.pid)+'? She’ll be taken off and can’t come back on.','Red card',()=>{
+    const r=mkEvent(m,'red',d.pid);const o=mkEvent(m,'off',d.pid,{link:r.id});o.t=r.t;o.at=r.at+1;m.events.push(r,o);save('matches',m.id);closeSheet();render();toast('Red card – '+pname(d.pid),{mid:m.id,eids:[r.id,o.id]});});},
+  claudeReport(){const m=cur();
+    openSheet(`<div class="row" style="margin-bottom:10px"><h2 class="grow" style="margin:0">✨ Match report</h2><button class="x" data-act="closeSheet">✕</button></div>
+    ${styleSeg()}
+    <p class="muted small">1. Copy the prompt and paste it into the Claude app.<br>2. Copy Claude’s report, paste it in the box below and tap Save.</p>
+    <button class="btn pri block" data-act="repGenerate">📋 Copy prompt for Claude</button>
+    <textarea id="repOut" style="min-height:220px;margin-top:10px" placeholder="Paste Claude’s report here…">${esc(m.report||'')}</textarea>
+    <p class="muted small" id="repNote"></p>
+    <div class="btns"><button class="btn" data-act="repCopy">📋 Copy report</button><button class="btn pri" data-act="repSave">Save to match</button></div>`);},
+  repStyle(d){repStyle=d.v;document.querySelectorAll('#repSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===d.v));},
+  async repGenerate(){const m=cur();const note=$('#repNote');const ok=await copyText(reportPrompt(m,repStyle),'Prompt copied');
+    if(ok&&note)note.textContent='Now paste it into the Claude app, then paste the report back here.';},
+  repCopy(){const t=($('#repOut')||{}).value||'';if(t.trim())copyText(t,'Report copied');},
+  repSave(){const m=cur();const t=(($('#repOut')||{}).value||'').trim();if(!t)return toast('Nothing to save yet');m.report=t;save('matches',m.id);closeSheet();render();toast('Report saved ✓');if(m.status==='done')queueSheet(m.id);},
+  async shareSaved(){const m=cur();const t=m.report||'';
+    if(navigator.share){try{await navigator.share({text:t});return;}catch(e){if(e&&e.name==='AbortError')return;}}
+    copyText(t,'Report copied');},
+  editReport(){A.claudeReport();},
+  tab(d){ui.tab=d.tab;ui.view=d.tab;ui.id=null;closeSheet();render();window.scrollTo(0,0);},
+  home(){ui.tab='matches';ui.view='matches';ui.id=null;render();window.scrollTo(0,0);},
+  open(d){const m=S.matches[d.id];if(!m)return;ui.tab='matches';ui.id=m.id;ui.view=m.status==='setup'?'setup':m.status==='live'?'live':'summary';render();window.scrollTo(0,0);},
+  newMatch(){if(!playersSorted().length){toast('Add players to the squad first');return A.tab({tab:'squad'});}
+    const id=uid();const sq={};playersSorted().forEach(p=>sq[p.id]='bench');
+    S.matches[id]={id,opponent:'',date:today(),venue:'H',comp:'League',halfLen:+S.settings.halfLen||35,status:'setup',squad:sq,events:[],clock:{running:false,base:0,startedAt:null},period:'pre',potm:null,notes:'',createdAt:Date.now()};
+    save('matches',id);A.open({id});},
+  setVenue(d){const m=cur();m.venue=d.v;save('matches',m.id);render();},
+  setSq(d){const m=cur();m.squad=m.squad||{};m.squad[d.pid]=d.v;save('matches',m.id);render();},
+  confirmSetup(){const m=cur();const st=Object.keys(m.squad||{}).filter(p=>m.squad[p]==='start'&&S.players[p]);
+    if(!st.length)return toast('Pick at least one starter');
+    if(!m.opponent)m.opponent='Opposition';
+    m.events=(m.events||[]).filter(e=>!e.auto);
+    st.forEach((pid,i)=>m.events.push({id:uid(),t:0,type:'on',pid,at:i,auto:true}));
+    m.status='live';m.period='pre';save('matches',m.id);ui.view='live';render();window.scrollTo(0,0);},
+  editLineup(){const m=cur();m.status='setup';m.events=(m.events||[]).filter(e=>!e.auto);save('matches',m.id);ui.view='setup';render();},
+  kickoff(){const m=cur();m.clock={running:true,base:0,startedAt:Date.now()};m.period=1;save('matches',m.id);render();},
+  pause(){const m=cur();m.clock.base=clockNow(m);m.clock.running=false;m.clock.startedAt=null;save('matches',m.id);render();},
+  resume(){const m=cur();m.clock.running=true;m.clock.startedAt=Date.now();save('matches',m.id);render();},
+  halftime(){const m=cur();m.clock.base=clockNow(m);m.clock.running=false;m.clock.startedAt=null;m.period='HT';save('matches',m.id);render();},
+  secondHalf(){const m=cur();m.period=2;m.clock.running=true;m.clock.startedAt=Date.now();save('matches',m.id);render();},
+  fulltime(){askConfirm('Blow the full-time whistle?','Full time',()=>{const m=cur();m.clock.base=clockNow(m);m.clock.running=false;m.clock.startedAt=null;m.period='FT';m.endT=m.clock.base;save('matches',m.id);closeSheet();render();window.scrollTo(0,0);});},
+  back2nd(){const m=cur();m.period=2;delete m.endT;save('matches',m.id);render();},
+  setPotm(d){const m=cur();m.potm=m.potm===d.pid?null:d.pid;save('matches',m.id);render();},
+  finish(){const m=cur();if(m.endT==null)m.endT=clockNow(m);m.status='done';m.period='FT';save('matches',m.id);ui.view='summary';render();window.scrollTo(0,0);toast('Match saved ✓');queueSheet(m.id);},
+  reopen(){const m=cur();m.status='live';m.period='FT';save('matches',m.id);ui.view='live';render();window.scrollTo(0,0);},
+  askDelMatch(){askConfirm('Delete this match and all its stats?','Delete',()=>{const id=ui.id;const wasDone=S.matches[id]&&S.matches[id].status==='done';closeSheet();removeDoc('matches',id);A.home();toast('Match deleted');if(wasDone)queueSheet(id,true);});},
+  tapPlayer(d){const m=cur();const st=enabledStats();
+    openSheet(sheetHead(m,d.pid)+`<div class="statgrid">${st.map(k=>`<button class="btn ${k==='goal'?'pri':''}" data-act="addStat" data-pid="${esc(d.pid)}" data-k="${k}">${STAT[k].icon} ${esc(STAT[k].label)}</button>`).join('')}</div>
+    <div class="btns"><button class="btn" data-act="addStat" data-pid="${esc(d.pid)}" data-k="yellow">🟨 Yellow card</button><button class="btn danger" data-act="redCard" data-pid="${esc(d.pid)}">🟥 Red card</button></div>
+    <button class="btn block" style="margin-top:10px" data-act="subOff" data-pid="${esc(d.pid)}">🔽 Take off</button>`);},
+  addStat(d){const m=cur();const e=addEvent(m,d.k,d.pid);
+    if(d.k==='goal'){const others=onPitch(m).filter(p=>p!==d.pid);
+      if(others.length){openSheet(`<div class="row" style="margin-bottom:10px"><h2 class="grow" style="margin:0">⚽ ${esc(pname(d.pid))} scores! Who assisted?</h2></div>${playerPick(m,others,'addAssist',`data-goal="${esc(e.id)}"`)}<button class="btn block" style="margin-top:12px" data-act="noAssist" data-goal="${esc(e.id)}">No assist</button>`);render();return;}}
+    closeSheet();render();toast(`${STAT[d.k]?STAT[d.k].label:d.k} – ${pname(d.pid)}`,{mid:m.id,eids:[e.id]});},
+  addAssist(d){const m=cur();const e=addEvent(m,'assist',d.pid,{link:d.goal});const g=(m.events||[]).find(x=>x.id===d.goal);if(g)e.t=g.t;save('matches',m.id);closeSheet();render();toast('Goal + assist saved',{mid:m.id,eids:[d.goal,e.id]});},
+  noAssist(d){closeSheet();render();toast('Goal saved',{mid:cur().id,eids:[d.goal]});},
+  ourGoal(){const m=cur();const on=onPitch(m);
+    openSheet(`<div class="row" style="margin-bottom:10px"><h2 class="grow" style="margin:0">⚽ Who scored?</h2><button class="x" data-act="closeSheet">✕</button></div>${playerPick(m,on,'addStat','data-k="goal"')}<button class="btn block" style="margin-top:12px" data-act="goalUnknown">Own goal / not sure</button>`);},
+  goalUnknown(){const m=cur();const e=addEvent(m,'goal',null);closeSheet();render();toast('Goal saved',{mid:m.id,eids:[e.id]});},
+  oppGoal(){const m=cur();const e=addEvent(m,'opp_goal',null);render();toast('Opposition goal',{mid:m.id,eids:[e.id]});},
+  subOff(d){const m=cur();const e=addEvent(m,'off',d.pid);closeSheet();render();toast(pname(d.pid)+' off',{mid:m.id,eids:[e.id]});},
+  tapBench(d){const m=cur();const on=onPitch(m);
+    openSheet(sheetHead(m,d.pid)+`<h3 style="margin-top:0">Bring on – who’s coming off?</h3>${playerPick(m,on,'subSwap',`data-in="${esc(d.pid)}"`)}
+    <button class="btn block" style="margin-top:12px" data-act="subOn" data-pid="${esc(d.pid)}">🔼 Bring on (nobody off)</button>`);},
+  subSwap(d){const m=cur();const t=Math.round(clockNow(m));const now=Date.now();
+    const o={id:uid(),t,type:'off',pid:d.pid,at:now},i={id:uid(),t,type:'on',pid:d.in,at:now+1};
+    m.events.push(o,i);save('matches',m.id);closeSheet();render();toast(`${pname(d.in)} on for ${pname(d.pid)}`,{mid:m.id,eids:[o.id,i.id]});},
+  subOn(d){const m=cur();const e=addEvent(m,'on',d.pid);closeSheet();render();toast(pname(d.pid)+' on',{mid:m.id,eids:[e.id]});},
+  delEv(d){const m=cur();const ev=(m.events||[]).find(e=>e.id===d.eid);if(!ev)return;
+    askConfirm('Remove “'+evText(ev).replace(/<[^>]+>/g,'')+'”?','Remove',()=>{m.events=m.events.filter(e=>e.id!==d.eid&&e.link!==d.eid);save('matches',m.id);closeSheet();render();});},
+  undo(){if(!lastUndo)return;const m=S.matches[lastUndo.mid];if(m){const ids=new Set(lastUndo.eids);m.events=m.events.filter(e=>!ids.has(e.id)&&!ids.has(e.link));save('matches',m.id);render();}
+    lastUndo=null;$('#toast').classList.add('hidden');},
+  copyReport(){const m=cur();const [a,b]=score(m);const team=S.settings.teamName||'Us';
+    let t=`${team} ${a}–${b} ${m.opponent||'Opposition'}\n${fmtDate(m.date)} · ${m.comp||''} · ${m.venue==='A'?'Away':'Home'}\n`;
+    const gl=goalsList(m);if(gl.length)t+=`\n⚽ Goals: ${gl.map(g=>g.name+(g.mins.length>1?' ×'+g.mins.length:'')).join(', ')}`;
+    const as={};(m.events||[]).filter(e=>e.type==='assist').forEach(e=>{as[e.pid]=(as[e.pid]||0)+1;});
+    const al=Object.keys(as);if(al.length)t+=`\n🅰️ Assists: ${al.map(p=>pname(p)+(as[p]>1?' ×'+as[p]:'')).join(', ')}`;
+    const sv=(m.events||[]).filter(e=>e.type==='save');if(sv.length){const by={};sv.forEach(e=>by[e.pid]=(by[e.pid]||0)+1);t+=`\n🧤 Saves: ${Object.keys(by).map(p=>pname(p)+' '+by[p]).join(', ')}`;}
+    if(m.potm)t+=`\n⭐ Player of the Match: ${pname(m.potm)}`;
+    copyText(t,'Summary copied');},
+  sortBy(d){ui.sort=d.k;render();},
+  dlCsv(){download(`${(S.settings.teamName||'team').replace(/[^\w-]+/g,'_')}_stats_${ui.season==='all'?'all':ui.season.replace('/','-')}.csv`,statsCsv(),'CSV copied');},
+  copyCsv(){copyText(statsCsv(),'Copied – paste into Sheets');},
+  dlBackup(){download(`match-stats-backup-${today()}.json`,JSON.stringify({v:1,players:S.players,matches:S.matches,settings:S.settings}),'Backup copied');},
+  copyBackup(){copyText(JSON.stringify({v:1,players:S.players,matches:S.matches,settings:S.settings}),'Backup copied');},
+  editPlayer(d){const p=S.players[d.pid];if(!p)return;
+    openSheet(`<div class="row"><h2 class="grow" style="margin:0">Edit player</h2><button class="x" data-act="closeSheet">✕</button></div>
+    <form data-form="savePlayer" data-pid="${esc(p.id)}"><div class="row"><div style="width:80px"><label class="f">No.</label><input name="num" inputmode="numeric" value="${esc(p.number==null?'':p.number)}"></div><div class="grow"><label class="f">Name</label><input name="name" value="${esc(p.name)}"></div></div>
+    <button class="btn pri block" type="submit" style="margin-top:12px">Save</button></form>
+    <button class="btn danger block" style="margin-top:10px" data-act="archivePlayer" data-pid="${esc(p.id)}">Remove from squad</button>
+    <p class="muted small">Removing keeps their past stats. You can restore them later.</p>`);},
+  archivePlayer(d){const p=S.players[d.pid];if(!p)return;p.active=false;save('players',p.id);closeSheet();render();toast(p.name+' removed');},
+  restorePlayer(d){const p=S.players[d.pid];if(!p)return;p.active=true;save('players',p.id);render();},
+  toggleArch(){ui.showArchived=!ui.showArchived;render();},
+  sheetAll(){Object.values(S.matches).filter(m=>m.status==='done').forEach(m=>{sheetQ.up[m.id]=1;});saveSheetQ();sendToSheet().then(()=>toast(sheetQ.lastErr?'No signal – will retry':'Sent to Google Sheet ✓'));render();},
+  closeSheet(){closeSheet();},
+  confirmYes(){const f=confirmFn;confirmFn=null;if(f)f();}
+};
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el)return;const fn=A[el.dataset.act];if(fn){e.preventDefault();fn(el.dataset,el);}});
+
+function addPlayer(name,num){name=String(name||'').trim();if(!name)return null;const id=uid()+Math.random().toString(36).slice(2,4);
+  const n=String(num==null?'':num).trim();S.players[id]={id,name,number:n===''?null:n,active:true,createdAt:Date.now()};save('players',id);return id;}
+function parseLine(line){line=line.trim().replace(/^[-•*]\s*/,'');if(!line)return null;let m;
+  if((m=line.match(/^#?(\d{1,3})[\s.\-:)]+(.+)$/)))return {num:m[1],name:m[2].trim()};
+  if((m=line.match(/^(.+?)[\s,\-]+#?(\d{1,3})$/)))return {num:m[2],name:m[1].trim()};
+  return {num:'',name:line};}
+document.addEventListener('submit',e=>{const f=e.target;const k=f.dataset.form;if(!k)return;e.preventDefault();
+  if(k==='addPlayer'){const n=f.elements.namedItem('name').value;if(!n.trim())return toast('Type a name');addPlayer(n,f.elements.namedItem('num').value);render();toast(n.trim()+' added');setTimeout(()=>{const i=document.querySelector('form[data-form="addPlayer"] input[name="num"]');if(i)i.focus();},50);}
+  else if(k==='bulkAdd'){const lines=f.elements.namedItem('list').value.split(/\n/).map(parseLine).filter(Boolean);lines.forEach(l=>addPlayer(l.name,l.num));render();toast(lines.length+' players added');}
+  else if(k==='savePlayer'){const p=S.players[f.dataset.pid];if(!p)return;const n=f.elements.namedItem('name').value.trim();if(!n)return toast('Name can’t be blank');p.name=n;const num=f.elements.namedItem('num').value.trim();p.number=num===''?null:num;save('players',p.id);closeSheet();render();}
+  else if(k==='restore'){let d;try{d=JSON.parse(f.elements.namedItem('json').value);}catch(err){return toast('That doesn’t look like a backup');}
+    askConfirm('Add everything from this backup?','Restore',()=>{let c=0;
+      for(const [id,p] of Object.entries(d.players||{})){if(p&&p.name){S.players[id]=Object.assign({},p,{id});save('players',id);c++;}}
+      for(const [id,m] of Object.entries(d.matches||{})){if(m&&Array.isArray(m.events)){S.matches[id]=Object.assign({},m,{id});save('matches',id);c++;}}
+      if(d.settings){S.settings=Object.assign(clone(DEFAULT_SETTINGS),d.settings);save('settings');}
+      closeSheet();render();toast('Restored '+c+' items');});}
+});
+document.addEventListener('change',e=>{const el=e.target;
+  if(el.dataset.mf){const m=cur();if(!m)return;let v=el.value;if(el.dataset.mf==='halfLen')v=Math.max(1,parseInt(v,10)||35);if(el.dataset.mf==='opponent')v=v.trim();m[el.dataset.mf]=v;save('matches',m.id);}
+  else if(el.dataset.sf){let v=el.value;if(el.dataset.sf==='halfLen')v=Math.max(1,parseInt(v,10)||35);else v=v.trim();S.settings[el.dataset.sf]=v;save('settings');$('#teamName').textContent=S.settings.teamName||'Match Stats';if(el.dataset.sf==='sheetUrl')render();}
+  else if(el.dataset.statk){const set=new Set(enabledStats());el.checked?set.add(el.dataset.statk):set.delete(el.dataset.statk);
+    S.settings.stats=STAT_DEFS.map(s=>s.k).filter(k=>set.has(k));save('settings');}
+  else if(el.dataset.actChange==='season'){ui.season=el.value;render();}
+});
+
+/* live clock tick */
+setInterval(()=>{if(ui.view!=='live')return;const m=cur();if(!m||!(m.clock&&m.clock.running))return;const t=clockNow(m);
+  const c=$('#clk');if(c)c.textContent=mmss(t);
+  document.querySelectorAll('.pmin').forEach(el=>{el.textContent=mmss(secsPlayed(m,el.dataset.pid,t));});},1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&ui.view==='live')rerender();});
+
+/* ---------- boot ---------- */
+downloads={save:async({filename,data})=>{
+  const blob=new Blob([data],{type:/\.csv$/i.test(filename)?'text/csv;charset=utf-8':'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);}};
+loadLocal();render();updateSync();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+(async()=>{
+  try{
+    if(!window.firebase)throw new Error('Firebase SDK not loaded');
+    firebase.initializeApp(FIREBASE_CONFIG);
+    const fs=firebase.firestore();
+    try{await fs.enablePersistence({synchronizeTabs:true});}catch(e){}
+    try{await Promise.race([firebase.auth().signInAnonymously(),new Promise(r=>setTimeout(r,6000))]);}catch(e){}
+    db=fs;
+  }catch(e){db=null;}
+  if(!db){dbState='none';updateSync();showBanner('Can’t reach the online database right now, so everything is saved on this phone only. It will connect next time you open the app with signal.');return;}
+  subscribe();flush();rerender();sendToSheet();
+})();
+})();
+</script>
+</body>
+</html>
